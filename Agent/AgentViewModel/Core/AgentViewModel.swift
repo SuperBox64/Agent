@@ -29,7 +29,20 @@ final class AgentViewModel {
     var inputFieldWidth: CGFloat = 0
 
     /// Tool steps for the current task (main tab) — ToolStep type is declared in AgentViewModel+Types.swift
-    var toolSteps: [ToolStep] = []
+    /// Persisted to UserDefaults (like `rawLLMOutput`) so the Steps list survives relaunch.
+    var toolSteps: [ToolStep] = {
+        guard let data = UserDefaults.standard.data(forKey: "mainToolSteps"),
+              let steps = try? JSONDecoder().decode([ToolStep].self, from: data) else { return [] }
+        return steps
+    }() {
+        didSet {
+            if toolSteps.isEmpty {
+                UserDefaults.standard.removeObject(forKey: "mainToolSteps")
+            } else if let data = try? JSONEncoder().encode(toolSteps) {
+                UserDefaults.standard.set(data, forKey: "mainToolSteps")
+            }
+        }
+    }
 
     /// Raw LLM `messages` array from the most recent main-tab task. Carried over
     /// into the next task so the model continues the conversation (same behavior
