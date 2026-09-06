@@ -713,9 +713,15 @@ struct ToolStepsView: View {
 
     @State private var isHovering = false
     @State private var dragStartHeight: Double?
+    /// Live height while a drag is in flight. Kept local so every mouse move doesn't
+    /// round-trip through the ViewModel + UserDefaults and re-render the whole parent.
+    @State private var dragHeight: Double?
 
     private static let minHeight: Double = 60
     private static let maxHeight: Double = 800
+
+    private var isDragging: Bool { dragStartHeight != nil }
+    private var effectiveHeight: Double { dragHeight ?? listHeight }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -782,7 +788,8 @@ struct ToolStepsView: View {
                         }
                         .padding(.top, 2)
                     }
-                    .frame(height: min(max(CGFloat(steps.count) * 18, Self.minHeight), listHeight))
+                    .frame(height: min(max(CGFloat(steps.count) * 18, Self.minHeight), effectiveHeight))
+                    .animation(nil, value: effectiveHeight)
                     .onHover { isHovering = $0 }
                     .onChange(of: steps.count) { _, _ in scrollToBottom(proxy) }
                     .onChange(of: steps.last?.status) { _, _ in scrollToBottom(proxy) }
@@ -791,7 +798,7 @@ struct ToolStepsView: View {
 
                 // Horizontal drag bar — resizes the list vertically
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color.secondary.opacity(0.35))
+                    .fill(Color.secondary.opacity(isDragging ? 0.7 : 0.35))
                     .frame(width: 36, height: 3)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 3)
@@ -799,14 +806,20 @@ struct ToolStepsView: View {
                     .onHover { inside in
                         if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
                     }
+                    // Global coordinate space: the handle moves while the list grows, so a
+                    // local-space translation would feed back into itself and jitter.
                     .gesture(
-                        DragGesture(minimumDistance: 1)
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
                             .onChanged { value in
                                 if dragStartHeight == nil { dragStartHeight = listHeight }
                                 let base = dragStartHeight ?? listHeight
-                                listHeight = min(max(base + value.translation.height, Self.minHeight), Self.maxHeight)
+                                dragHeight = min(max(base + value.translation.height, Self.minHeight), Self.maxHeight)
                             }
-                            .onEnded { _ in dragStartHeight = nil }
+                            .onEnded { _ in
+                                if let h = dragHeight { listHeight = h }
+                                dragHeight = nil
+                                dragStartHeight = nil
+                            }
                     )
                     .help("Drag to resize the Steps list")
             }
@@ -815,7 +828,7 @@ struct ToolStepsView: View {
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard autoScroll, !isHovering, let last = steps.last else { return }
+        guard autoScroll, !isHovering, !isDragging, let last = steps.last else { return }
         withAnimation(.easeOut(duration: 0.15)) {
             proxy.scrollTo(last.id, anchor: .bottom)
         }
