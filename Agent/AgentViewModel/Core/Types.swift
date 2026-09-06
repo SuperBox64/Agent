@@ -68,15 +68,15 @@ extension AgentViewModel {
     // MARK: - Tool Steps (structured tool call tracking)
 
     /// A single tool invocation step for structured display
-    struct ToolStep: Identifiable {
-        let id = UUID()
+    struct ToolStep: Identifiable, Codable {
+        var id = UUID()
         let name: String
         let detail: String
         let startTime: Date
         var duration: TimeInterval?
         var status: Status = .running
 
-        enum Status {
+        enum Status: String, Codable {
             case running, success, error
         }
     }

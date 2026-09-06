@@ -66,6 +66,7 @@ final class ScriptTabRecord {
     var thinkingDismissed: Bool = true
     var tabInputTokens: Int = 0
     var tabOutputTokens: Int = 0
+    var toolStepsJSON: String? // JSON-encoded [AgentViewModel.ToolStep] for the last task's Steps list
 
     init(
         tabId: UUID,
@@ -85,7 +86,8 @@ final class ScriptTabRecord {
         thinkingOutputExpanded: Bool = false,
         thinkingDismissed: Bool = true,
         tabInputTokens: Int = 0,
-        tabOutputTokens: Int = 0
+        tabOutputTokens: Int = 0,
+        toolStepsJSON: String? = nil
     )
     {
         self.tabId = tabId
@@ -106,6 +108,7 @@ final class ScriptTabRecord {
         self.thinkingDismissed = thinkingDismissed
         self.tabInputTokens = tabInputTokens
         self.tabOutputTokens = tabOutputTokens
+        self.toolStepsJSON = toolStepsJSON
     }
 }
 
@@ -421,7 +424,8 @@ final class ChatHistoryStore {
             thinkingOutputExpanded: Bool,
             thinkingDismissed: Bool,
             tabInputTokens: Int,
-            tabOutputTokens: Int
+            tabOutputTokens: Int,
+            toolStepsJSON: String?
         )
     ]) {
         guard !storeDisabled, let context else { return }
@@ -447,7 +451,8 @@ final class ChatHistoryStore {
                 thinkingOutputExpanded: tab.thinkingOutputExpanded,
                 thinkingDismissed: tab.thinkingDismissed,
                 tabInputTokens: tab.tabInputTokens,
-                tabOutputTokens: tab.tabOutputTokens
+                tabOutputTokens: tab.tabOutputTokens,
+                toolStepsJSON: tab.toolStepsJSON
             )
             context.insert(record)
         }

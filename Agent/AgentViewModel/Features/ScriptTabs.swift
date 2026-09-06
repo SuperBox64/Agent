@@ -287,6 +287,11 @@ extension AgentViewModel {
                       let data = try? JSONEncoder().encode(tab.tabErrors) else { return nil }
                 return String(data: data, encoding: .utf8)
             }()
+            let stepsJSON: String? = {
+                guard !tab.toolSteps.isEmpty,
+                      let data = try? JSONEncoder().encode(tab.toolSteps) else { return nil }
+                return String(data: data, encoding: .utf8)
+            }()
             return (
                 id: tab.id,
                 scriptName: tab.scriptName,
@@ -305,7 +310,8 @@ extension AgentViewModel {
                 thinkingOutputExpanded: tab.thinkingOutputExpanded,
                 thinkingDismissed: tab.thinkingDismissed,
                 tabInputTokens: tab.tabInputTokens,
-                tabOutputTokens: tab.tabOutputTokens
+                tabOutputTokens: tab.tabOutputTokens,
+                toolStepsJSON: stepsJSON
             )
         }
         ChatHistoryStore.shared.saveScriptTabs(tabData)

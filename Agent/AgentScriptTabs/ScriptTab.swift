@@ -223,6 +223,12 @@ final class ScriptTab: Identifiable {
         self.thinkingDismissed = record.rawLLMOutput.isEmpty ? true : record.thinkingDismissed
         self.tabInputTokens = record.tabInputTokens
         self.tabOutputTokens = record.tabOutputTokens
+        // Restore the last task's Steps list so the HUD shows it after relaunch
+        if let json = record.toolStepsJSON, let data = json.data(using: .utf8),
+           let steps = try? JSONDecoder().decode([AgentViewModel.ToolStep].self, from: data)
+        {
+            self.toolSteps = steps
+        }
         // Per-tab HUD layout state (UserDefaults keyed by tab id — not in the SwiftData record)
         let defaults = UserDefaults.standard
         if let h = defaults.object(forKey: "tab.\(id.uuidString).llmOutputHeight") as? Double {
