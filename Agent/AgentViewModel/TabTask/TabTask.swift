@@ -112,6 +112,7 @@ extension AgentViewModel {
         tab.thinkingExpanded = true
         tab.thinkingOutputExpanded = true
         tab.thinkingDismissed = false
+        tab.toolSteps.removeAll() // Fresh Steps list for this task
         // Reset fallback chain so this run starts on the primary provider
         FallbackChainService.shared.reset()
         // Tier 8: edits in this task must be preceded by a read in this task.
@@ -545,6 +546,9 @@ extension AgentViewModel {
         tab.flush()
         tab.isLLMRunning = false
         tab.isLLMThinking = false
+        // Persist HUD state (LLM output, Steps, tokens, elapsed) NOW — the
+        // willTerminate hook is not reliable (app may be killed by a build/relaunch).
+        persistScriptTabs()
     }
 
     // MARK: - Tab Tool Call Handler
@@ -570,6 +574,7 @@ extension AgentViewModel {
         let result = await handleTabToolCallBody(tab: tab, name: name, input: input, toolId: toolId)
         let status: AgentViewModel.ToolStep.Status = Self.toolResultLooksLikeError(result.toolResult) ? .error : .success
         tab.completeToolStep(id: stepId, status: status)
+        persistScriptTabs() // Keep the Steps list on disk even if the app is killed mid-task
         return result
     }
 

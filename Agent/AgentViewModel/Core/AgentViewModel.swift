@@ -899,7 +899,9 @@ final class AgentViewModel {
             forName: NSApplication.willTerminateNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
+            // Must run synchronously — the process exits as soon as this returns,
+            // so a detached Task would never get to persist.
+            MainActor.assumeIsolated {
                 self?.persistScriptTabs()
             }
         }
