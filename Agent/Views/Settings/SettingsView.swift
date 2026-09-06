@@ -1088,6 +1088,15 @@ struct SettingsView: View {
                     .help("Always send images to LLM, even for non-vision models")
             }
 
+            HStack {
+                Text("Auto-scroll Steps").font(.caption)
+                Spacer()
+                Toggle("", isOn: $viewModel.toolStepsAutoScroll)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .help("Keep the Steps list scrolled to the newest step while the mouse is not hovering over it")
+            }
+
         }
         .padding(16)
         .padding(.bottom, 15)

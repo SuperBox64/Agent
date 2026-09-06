@@ -96,6 +96,14 @@ final class AgentViewModel {
     var toolStepsExpanded: Bool = UserDefaults.standard.object(forKey: "toolStepsExpanded") as? Bool ?? false {
         didSet { UserDefaults.standard.set(toolStepsExpanded, forKey: "toolStepsExpanded") }
     }
+    /// User's drag-resized height for the Steps list inside the LLM Output HUD. Persisted across launches.
+    var toolStepsHeight: Double = UserDefaults.standard.object(forKey: "toolStepsHeight") as? Double ?? 200 {
+        didSet { UserDefaults.standard.set(toolStepsHeight, forKey: "toolStepsHeight") }
+    }
+    /// Auto-scroll the Steps list to the newest step while the mouse is not hovering over it.
+    var toolStepsAutoScroll: Bool = UserDefaults.standard.object(forKey: "toolStepsAutoScroll") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(toolStepsAutoScroll, forKey: "toolStepsAutoScroll") }
+    }
     /// User's drag-resized height for the LLM Output HUD on the main tab. Persisted across launches.
     var llmOutputHeight: Double = UserDefaults.standard.object(forKey: "llmOutputHeight") as? Double ?? 80 {
         didSet { UserDefaults.standard.set(llmOutputHeight, forKey: "llmOutputHeight") }

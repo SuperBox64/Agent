@@ -308,7 +308,12 @@ struct ThinkingIndicatorView: View {
                                     if let tab { tab.toolStepsExpanded = newValue }
                                     else { viewModel.toolStepsExpanded = newValue }
                                 }
-                            )
+                            ),
+                            listHeight: Binding(
+                                get: { viewModel.toolStepsHeight },
+                                set: { viewModel.toolStepsHeight = $0 }
+                            ),
+                            autoScroll: viewModel.toolStepsAutoScroll
                         )
                     }
                 }
@@ -701,6 +706,16 @@ private struct ContentHeightKey: PreferenceKey {
 struct ToolStepsView: View {
     let steps: [AgentViewModel.ToolStep]
     @Binding var isExpanded: Bool
+    /// Drag-resizable height of the scrollable list (persisted by the caller).
+    @Binding var listHeight: Double
+    /// When true, the list follows the newest step unless the mouse is over it.
+    let autoScroll: Bool
+
+    @State private var isHovering = false
+    @State private var dragStartHeight: Double?
+
+    private static let minHeight: Double = 60
+    private static let maxHeight: Double = 800
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -723,52 +738,87 @@ struct ToolStepsView: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(steps.enumerated()), id: \.element.id) { idx, step in
-                            HStack(spacing: 6) {
-                                Text("\(idx + 1)")
-                                    .font(.system(size: 9, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
-                                    .frame(width: 20, alignment: .trailing)
-                                switch step.status {
-                                case .running:
-                                    ProgressView().controlSize(.mini)
-                                case .success:
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.green)
-                                case .error:
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.red)
-                                }
-                                Text(step.name)
-                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(.primary)
-                                if !step.detail.isEmpty {
-                                    Text(step.detail)
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                }
-                                Spacer()
-                                if let d = step.duration {
-                                    Text(String(format: "%.1fs", d))
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(steps.enumerated()), id: \.element.id) { idx, step in
+                                HStack(spacing: 6) {
+                                    Text("\(idx + 1)")
                                         .font(.system(size: 9, design: .monospaced))
                                         .foregroundStyle(.tertiary)
+                                        .frame(width: 20, alignment: .trailing)
+                                    switch step.status {
+                                    case .running:
+                                        ProgressView().controlSize(.mini)
+                                    case .success:
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.green)
+                                    case .error:
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(.red)
+                                    }
+                                    Text(step.name)
+                                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.primary)
+                                    if !step.detail.isEmpty {
+                                        Text(step.detail)
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    Spacer()
+                                    if let d = step.duration {
+                                        Text(String(format: "%.1fs", d))
+                                            .font(.system(size: 9, design: .monospaced))
+                                            .foregroundStyle(.tertiary)
+                                    }
                                 }
+                                .padding(.vertical, 1)
+                                .id(step.id)
                             }
-                            .padding(.vertical, 1)
                         }
+                        .padding(.top, 2)
                     }
-                    .padding(.top, 2)
+                    .frame(height: min(max(CGFloat(steps.count) * 18, Self.minHeight), listHeight))
+                    .onHover { isHovering = $0 }
+                    .onChange(of: steps.count) { _, _ in scrollToBottom(proxy) }
+                    .onChange(of: steps.last?.status) { _, _ in scrollToBottom(proxy) }
+                    .onAppear { scrollToBottom(proxy) }
                 }
-                .frame(maxHeight: min(CGFloat(steps.count) * 18, 200))
+
+                // Horizontal drag bar — resizes the list vertically
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Color.secondary.opacity(0.35))
+                    .frame(width: 36, height: 3)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 1)
+                            .onChanged { value in
+                                if dragStartHeight == nil { dragStartHeight = listHeight }
+                                let base = dragStartHeight ?? listHeight
+                                listHeight = min(max(base + value.translation.height, Self.minHeight), Self.maxHeight)
+                            }
+                            .onEnded { _ in dragStartHeight = nil }
+                    )
+                    .help("Drag to resize the Steps list")
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard autoScroll, !isHovering, let last = steps.last else { return }
+        withAnimation(.easeOut(duration: 0.15)) {
+            proxy.scrollTo(last.id, anchor: .bottom)
+        }
     }
 }
 
