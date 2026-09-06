@@ -74,10 +74,14 @@ final class ScriptTab: Identifiable {
     var thinkingDismissed: Bool = true
     var thinkingExpanded: Bool = false
     var thinkingOutputExpanded: Bool = false
-    /// Expanded state for tool steps disclosure (persists across toggles)
-    var toolStepsExpanded: Bool = false
-    /// User's drag-resized height for the LLM Output HUD on this tab. Persisted across tab switches.
-    var llmOutputHeight: Double = 80
+    /// Expanded state for tool steps disclosure (persists across toggles and launches, keyed by tab id)
+    var toolStepsExpanded: Bool = false {
+        didSet { UserDefaults.standard.set(toolStepsExpanded, forKey: "tab.\(id.uuidString).toolStepsExpanded") }
+    }
+    /// User's drag-resized height for the LLM Output HUD on this tab. Persisted across tab switches and launches (keyed by tab id).
+    var llmOutputHeight: Double = 80 {
+        didSet { UserDefaults.standard.set(llmOutputHeight, forKey: "tab.\(id.uuidString).llmOutputHeight") }
+    }
 
     /// Unified busy check — true when the tab is doing anything (running, LLM, thinking)
     var isBusy: Bool { isRunning || isLLMRunning || isLLMThinking }
@@ -219,6 +223,14 @@ final class ScriptTab: Identifiable {
         self.thinkingDismissed = record.rawLLMOutput.isEmpty ? true : record.thinkingDismissed
         self.tabInputTokens = record.tabInputTokens
         self.tabOutputTokens = record.tabOutputTokens
+        // Per-tab HUD layout state (UserDefaults keyed by tab id — not in the SwiftData record)
+        let defaults = UserDefaults.standard
+        if let h = defaults.object(forKey: "tab.\(id.uuidString).llmOutputHeight") as? Double {
+            self.llmOutputHeight = h
+        }
+        if let e = defaults.object(forKey: "tab.\(id.uuidString).toolStepsExpanded") as? Bool {
+            self.toolStepsExpanded = e
+        }
     }
 
     // MARK: - Logging
