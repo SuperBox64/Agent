@@ -259,3 +259,58 @@ struct CodexPatchApplierTests {
         #expect(r.summary == "Patch applied (no changes detected).")
     }
 }
+
+// MARK: - OpenAI-compatible tool-call helpers
+
+@Suite("OpenAIToolCallParsing")
+struct OpenAIToolCallParsingTests {
+
+    private func isAlnum9(_ s: String) -> Bool {
+        s.count == 9 && s.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) }
+    }
+
+    @Test("shortToolId is 9 alphanumeric chars and unique across calls")
+    func shortToolId() {
+        let a = OpenAIToolCallParsing.shortToolId()
+        let b = OpenAIToolCallParsing.shortToolId()
+        #expect(isAlnum9(a))
+        #expect(isAlnum9(b))
+        #expect(a != b)
+    }
+
+    @Test("sanitizeToolId strips non-alphanumerics and truncates to 9")
+    func sanitizeLong() {
+        #expect(OpenAIToolCallParsing.sanitizeToolId("call_abc123DEF456xyz") == "callabc12")
+        #expect(OpenAIToolCallParsing.sanitizeToolId("toolu_01ABCDEFGHIJ") == "toolu01AB")
+        let padded = OpenAIToolCallParsing.sanitizeToolId("exactly-9!") // 8 clean chars -> 1 random pad
+        #expect(padded.hasPrefix("exactly9"))
+        #expect(isAlnum9(padded))
+        #expect(OpenAIToolCallParsing.sanitizeToolId("abcdefghi") == "abcdefghi")
+    }
+
+    @Test("sanitizeToolId pads short ids to 9 keeping the clean prefix")
+    func sanitizeShort() {
+        let out = OpenAIToolCallParsing.sanitizeToolId("ab-c")
+        #expect(out.hasPrefix("abc"))
+        #expect(isAlnum9(out))
+        let empty = OpenAIToolCallParsing.sanitizeToolId("")
+        #expect(isAlnum9(empty))
+    }
+
+    @Test("isToolCallJSON accepts {name, arguments} objects, with surrounding whitespace")
+    func toolCallJSONAccepts() {
+        #expect(OpenAIToolCallParsing.isToolCallJSON(#"{"name":"git","arguments":{"action":"status"}}"#))
+        #expect(OpenAIToolCallParsing.isToolCallJSON("  \n{\"name\": \"file\", \"arguments\": \"{}\"}\n"))
+        #expect(OpenAIToolCallParsing.isToolCallJSON(#"{"name":"x","arguments":null}"#))
+    }
+
+    @Test("isToolCallJSON rejects prose, partial JSON, wrong shape, non-string name")
+    func toolCallJSONRejects() {
+        #expect(!OpenAIToolCallParsing.isToolCallJSON("Here is the plan: name and arguments"))
+        #expect(!OpenAIToolCallParsing.isToolCallJSON(#"{"name":"git","arguments":"#))
+        #expect(!OpenAIToolCallParsing.isToolCallJSON(#"{"name":"git"}"#))
+        #expect(!OpenAIToolCallParsing.isToolCallJSON(#"{"arguments":{}}"#))
+        #expect(!OpenAIToolCallParsing.isToolCallJSON(#"{"name":42,"arguments":{}}"#))
+        #expect(!OpenAIToolCallParsing.isToolCallJSON(#"[{"name":"git","arguments":{}}]"#))
+    }
+}

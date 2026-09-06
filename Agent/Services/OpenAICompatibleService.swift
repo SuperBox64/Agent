@@ -4,19 +4,41 @@ import AgentAudit
 import AgentTools
 
 /// Unified service for OpenAI and Hugging Face Inference API (both use OpenAI chat completions format with SSE streaming).
-/// Generate a 9-char alphanumeric tool call ID compatible with all providers (including Mistral).
-private func shortToolId() -> String {
-    let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    return String((0..<9).map { _ in chars.randomElement()! })
+/// Pure helpers for OpenAI-compatible tool-call IDs and text-embedded tool-call detection (testable).
+enum OpenAIToolCallParsing {
+    /// Generate a 9-char alphanumeric tool call ID compatible with all providers (including Mistral).
+    nonisolated static func shortToolId() -> String {
+        let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return String((0..<9).map { _ in chars.randomElement()! })
+    }
+
+    /// Sanitize an existing tool call ID to 9 alphanumeric chars.
+    nonisolated static func sanitizeToolId(_ id: String) -> String {
+        let clean = String(id.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+        if clean.count >= 9 { return String(clean.prefix(9)) }
+        // Pad if too short
+        return clean + shortToolId().prefix(9 - clean.count)
+    }
+
+    /// Check if a line is a raw JSON tool call (e.g. {"name": "...", "arguments": {...}})
+    /// that vLLM/Qwen outputs as text content instead of native tool_calls.
+    nonisolated static func isToolCallJSON(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("{"), trimmed.contains("\"name\""),
+              trimmed.contains("\"arguments\"") else { return false }
+        // Verify it actually parses as JSON with name + arguments keys
+        if let data = trimmed.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           obj["name"] is String, obj["arguments"] != nil
+        {
+            return true
+        }
+        return false
+    }
 }
 
-/// Sanitize an existing tool call ID to 9 alphanumeric chars.
-private func sanitizeToolId(_ id: String) -> String {
-    let clean = String(id.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
-    if clean.count >= 9 { return String(clean.prefix(9)) }
-    // Pad if too short
-    return clean + shortToolId().prefix(9 - clean.count)
-}
+private func shortToolId() -> String { OpenAIToolCallParsing.shortToolId() }
+private func sanitizeToolId(_ id: String) -> String { OpenAIToolCallParsing.sanitizeToolId(id) }
 
 @MainActor
 final class OpenAICompatibleService {
@@ -671,19 +693,7 @@ final class OpenAICompatibleService {
         var lineBuffer = ""
 
         /// Check if a line is a raw JSON tool call (e.g. {"name": "...", "arguments": {...}})
-        func isToolCallJSON(_ line: String) -> Bool {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.hasPrefix("{"), trimmed.contains("\"name\""),
-                  trimmed.contains("\"arguments\"") else { return false }
-            // Verify it actually parses as JSON with name + arguments keys
-            if let data = trimmed.data(using: .utf8),
-               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               obj["name"] is String, obj["arguments"] != nil
-            {
-                return true
-            }
-            return false
-        }
+        func isToolCallJSON(_ line: String) -> Bool { OpenAIToolCallParsing.isToolCallJSON(line) }
 
         /// Flush the line buffer — forward to UI if it's not a tool call JSON
         func flushLineBuffer() {
