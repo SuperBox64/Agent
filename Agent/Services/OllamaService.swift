@@ -885,7 +885,7 @@ final class OllamaService {
                     } else {
                         // Try to parse as JSON value (number, bool, object, array)
                         if let data = value.data(using: .utf8),
-                           let parsed = try? JSONSerialization.jsonObject(with: data)
+                           let parsed = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
                         {
                             params[key] = parsed
                         } else {
