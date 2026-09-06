@@ -236,6 +236,9 @@ final class ScriptTab: Identifiable {
         }
         if let e = defaults.object(forKey: "tab.\(id.uuidString).toolStepsExpanded") as? Bool {
             self.toolStepsExpanded = e
+        } else if !self.toolSteps.isEmpty {
+            // Restored steps with no saved disclosure state — show them instead of a collapsed (0-height) list
+            self.toolStepsExpanded = true
         }
     }
 

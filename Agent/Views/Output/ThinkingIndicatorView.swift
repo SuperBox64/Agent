@@ -788,7 +788,7 @@ struct ToolStepsView: View {
                         }
                         .padding(.top, 2)
                     }
-                    .frame(height: min(max(CGFloat(steps.count) * 18, Self.minHeight), effectiveHeight))
+                    .frame(height: max(min(max(CGFloat(steps.count) * 18, Self.minHeight), effectiveHeight), Self.minHeight))
                     .animation(nil, value: effectiveHeight)
                     .onHover { isHovering = $0 }
                     .onChange(of: steps.count) { _, _ in scrollToBottom(proxy) }
