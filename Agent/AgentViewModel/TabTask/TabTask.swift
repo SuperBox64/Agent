@@ -207,20 +207,30 @@ extension AgentViewModel {
             iterations += 1
 
             // Iteration cap — force task_complete when the LLM refuses to end.
+            // Two final turns after the nudge (provider-agnostic — every provider
+            // routes through this loop): one to finish the in-flight edit, one to
+            // write the handoff doc. Hard stop at maxIterations + 1.
             if iterations == maxIterations {
-                tab.appendLog("⏱ Iteration \(iterations)/\(maxIterations) — nudging LLM to call task_complete")
+                tab.appendLog("⏱ Iteration \(iterations)/\(maxIterations) — nudging LLM to wrap up (2 turns left)")
                 tab.flush()
                 messages.append([
                     "role": "user",
-                    "content": "You have reached the iteration limit. This is your final turn. You may make ONE last tool call to save your progress (e.g. write a status/handoff document), then call task_complete with a summary of what you accomplished. Do not start any new work."
+                    "content": "You have reached the iteration limit. You have TWO final turns. Turn 1: make ONE tool call to finish any in-flight edit. Turn 2: make ONE tool call to write a status/handoff document (e.g. STATUS.md) describing what is done and what remains, then call task_complete with a summary. Do not start any new work."
+                ])
+            } else if iterations == maxIterations + 1 {
+                tab.appendLog("⏱ Iteration \(iterations)/\(maxIterations) — final turn")
+                tab.flush()
+                messages.append([
+                    "role": "user",
+                    "content": "This is your FINAL turn. Make ONE last tool call to write your status/handoff document, then call task_complete with a summary of what you accomplished and what remains."
                 ])
             }
-            if iterations > maxIterations {
+            if iterations > maxIterations + 1 {
                 let summary = completionSummary.isEmpty
                     ? (commandsRun.isEmpty ? "(no actions — iteration cap reached)" : "Forced completion after \(iterations - 1) iterations. Last actions: \(commandsRun.suffix(5).joined(separator: ", "))")
                     : completionSummary
                 completionSummary = summary
-                tab.appendLog("⏱ Forced task_complete — hit iteration cap (\(maxIterations))")
+                tab.appendLog("⏱ Forced task_complete — hit iteration cap (\(maxIterations) + 2 wrap-up turns)")
                 tab.appendLog("✅ Completed: \(summary)")
                 tab.flush()
                 break mainLoop
