@@ -356,6 +356,9 @@ final class ScriptTab: Identifiable {
     // MARK: - LLM Streaming
 
     func appendStreamDelta(_ delta: String) {
+        // Late "⚙️ tool" deltas hop through `Task { @MainActor }` and can land after
+        // task_complete appended the ✅ summary — the reset below would wipe it.
+        guard isLLMRunning else { return }
         if !llmStreamingStarted {
             llmStreamingStarted = true
             llmStreamBuffer = ""

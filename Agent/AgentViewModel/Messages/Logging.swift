@@ -562,6 +562,12 @@ extension AgentViewModel {
     // MARK: - LLM Streaming
 
     func appendStreamDelta(_ delta: String) {
+        // Deltas arrive via detached `Task { @MainActor }` hops, so a trailing
+        // "⚙️ tool" delta from the final turn can land AFTER task_complete has
+        // appended the ✅ summary and flushStreamBuffer cleared
+        // streamingTextStarted — the reset below would then wipe the summary,
+        // leaving only the tool name in the HUD. Ignore deltas once the task is over.
+        guard isRunning else { return }
         if !streamingTextStarted {
             rawLLMOutput = ""
             displayedLLMOutput = ""
