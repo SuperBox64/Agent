@@ -38,8 +38,9 @@ Intermediates.noindex/
 [0-9]/
 [0-9][0-9]/
 
-# Claude harness state
-.claude/
+# Claude harness state (CLAUDE.md is tracked — it holds project instructions + Agent! identity)
+.claude/*
+!.claude/CLAUDE.md
 
 # Playwright MCP cache
 .playwright-mcp/
